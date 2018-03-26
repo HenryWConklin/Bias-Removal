@@ -3,8 +3,8 @@
 
 # TODO
 * Clean dataset
-* Narrow vocabulary
+* Vocabulary: everything?
 * POS tagger
-* Other features
-* Bias identifier
+* Other features?
+* Clustering on candidate features, sanity check
 * Bias remover
