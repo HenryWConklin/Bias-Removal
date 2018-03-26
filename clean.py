@@ -8,7 +8,7 @@ if __name__=="__main__":
             cols = line.strip().split('\t')
             cols = [x.replace('[', '').replace(']','') for x in cols]
             if cols[8] != cols[9] and cols[3] == 'true':
-                print('\t'.join(cols))
+                print('\t'.join(cols[8:]))
 
 
 
