@@ -1,5 +1,6 @@
 from keras.models import Model
-from keras.layers import Input, LSTM, Dense, TimeDistributed, Softmax
+from keras.layers import Input, LSTM, Dense, TimeDistributed, Softmax, RepeatVector
+from keras.callbacks import TensorBoard
 import numpy as np
 import parse_data
 
@@ -9,54 +10,54 @@ invCharMap = {i:c for i,c in enumerate(charSet)}
 
 N_CHARS = len(charSet)
 
-def build_model():
-    encoder_input = Input(shape=(None, N_CHARS))
-    encoder = LSTM(256, return_state=True)
-    encoder_output, state_h, state_c = encoder(encoder_input)
+def build_model(max_time):
+    encoder_input = Input(shape=(max_time, N_CHARS), name='encoder-in')
+    encoder = LSTM(128, return_sequences=True)(encoder_input)
+    encoder = LSTM(128, return_sequences=True)(encoder)
 
-    decoder_inputs = Input(shape=(None, N_CHARS))
-    decoder = LSTM(256, return_state=True, return_sequences=True)
-    decoder_outputs, _, _ = decoder(decoder_inputs, initial_state=[state_h, state_c])
-    decoder_dense = Dense(N_CHARS, activation='softmax')
-    decoder_outputs = decoder_dense(decoder_outputs)
+    # decoder_in = RepeatVector(max_time)(encoder)
+    decoder = LSTM(128, return_sequences=True)(encoder)
+    decoder_output = TimeDistributed(Dense(N_CHARS, activation='softmax'))(decoder)
 
+    model = Model(encoder_input, decoder_output)
 
-    model = Model([encoder_input, decoder_inputs], decoder_outputs)
-
-    model.compile(optimizer='rmsprop', loss='categorical_crossentropy')
     return model
 
-def buildData(path):
+def oneHotTransform(docs, docLen):
+    vecs = np.zeros((len(docs), docLen, N_CHARS))
+    for i,d in enumerate(docs):
+        for t,c in enumerate(d):
+            # one-hot embedding
+            vecs[i][t][charMap[c]] = 1
+    return vecs
+
+
+def buildData(path, maxrows=-1):
     data = parse_data.read(path)
+    if maxrows > 0:
+        data = data[:maxrows]
     in_data, out_data = zip(*data)
     # square brackets won't appear normally, use as start/end chars
     out_data = ['[' + s + ']' for s in out_data]
 
     max_in_len = max([len(s) for s in in_data])
     max_out_len = max([len(s) for s in out_data])
+    max_len = max(max_in_len, max_out_len)
 
-    in_vecs = np.zeros((len(in_data), max_in_len, N_CHARS), dtype=np.float32)
-    out_state_vecs = np.zeros((len(out_data), max_out_len, N_CHARS), dtype=np.float32)
-    out_vecs = np.zeros((len(out_data), max_out_len, N_CHARS), dtype=np.float32)
+    in_vecs = oneHotTransform(in_data, max_len)
+    out_vecs = oneHotTransform(out_data, max_len)
 
-    for i,d in enumerate(in_data):
-        for t,c in enumerate(d):
-            # one-hot embedding
-            in_vecs[i][t][charMap[c]] = 1
-    for i,d in enumerate(out_data):
-        for t,c in enumerate(d):
-            # one-hot embedding
-            out_state_vecs[i][t][charMap[c]] = 1
-            if t > 0:
-                # shift output back by one, gets all of the history outputs next char
-                out_vecs[i][t-1][charMap[c]] = 1
+    return in_vecs, out_vecs, max_len
 
-    return in_vecs, out_state_vecs, out_vecs
-
-def trainModel(path):
-    in_vecs, out_state_vecs, out_vecs = buildData(path)
-    model = build_model()
-    model.fit([in_vecs, out_state_vecs], out_vecs, batch_size=32, epochs=10, validation_split=0.1)
+def trainModel(path, model=None):
+    tb = TensorBoard(log_dir='./logs', histogram_freq=1, batch_size=32, write_graph=True, write_grads=False,
+                                write_images=False, embeddings_freq=0, embeddings_layer_names=None,
+                                embeddings_metadata=None)
+    in_vecs, out_vecs, maxlen = buildData(path)
+    if model is None:
+        model = build_model(maxlen)
+    model.compile(optimizer='rmsprop', loss='categorical_crossentropy')
+    model.fit(in_vecs, out_vecs, batch_size=32, epochs=3, validation_split=0.1, callbacks=[tb])
     model.save('rnn.h5')
 
 
