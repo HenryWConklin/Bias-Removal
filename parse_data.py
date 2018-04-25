@@ -6,7 +6,7 @@ def read(path):
 
 def getCharSet():
     with open('charset.txt') as inFile:
-        return set(inFile.read().split('\n'))
+        return inFile.read().split('\n')
 
 if __name__ == '__main__':
     charSet = set()
