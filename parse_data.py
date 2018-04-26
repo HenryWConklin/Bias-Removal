@@ -41,7 +41,7 @@ if __name__ == '__main__':
 
     print(sorted(charSet))
     print(len(charSet))
-    vocab = sorted(filter(lambda x: vocab[x] > 100, vocab), key = lambda x: -vocab[x])
+    vocab = sorted(filter(lambda x: vocab[x] > 40, vocab), key = lambda x: -vocab[x])
     print(len(vocab))
     with open('charset.txt', 'w') as outFile:
         for c in sorted(charSet):

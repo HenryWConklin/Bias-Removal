@@ -18,10 +18,10 @@ N_WORDS = len(vocab)
 
 def build_bidirectional_model():
     model = Sequential()
-    model.add(Embedding(N_WORDS, 256))
-    model.add(Bidirectional(LSTM(256, return_sequences=True)))
+    model.add(Embedding(N_WORDS, 512))
+    model.add(Bidirectional(LSTM(512, return_sequences=True, activation='relu')))
     model.add(Dropout(0.2))
-    model.add(Bidirectional(LSTM(256, return_sequences=True)))
+    model.add(Bidirectional(LSTM(512, return_sequences=True, activation='relu')))
     model.add(Dropout(0.2))
     model.add(TimeDistributed(Dense(N_WORDS, activation='softmax')))
 
@@ -97,21 +97,20 @@ def buildData(path, maxrows=-1):
 
 def trainModel(path, model=None, epochs=3):
     buckets = buildData(path)
-
+    import gc
+    gc.collect()
     if model is None:
         model = build_bidirectional_model()
         model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['acc'])
     for i in range(epochs):
-        for in_vecs, out_vecs in buckets:
+        for in_vecs, out_vecs in buckets[1:4]:
             model.fit(in_vecs, out_vecs, batch_size=64, epochs=1, validation_split=0.1)
-    model.save('rnn.h5')
+        model.save('rnn.h5')
     return model
 
 
 if __name__ == '__main__':
-    model = None
-    for i in range(30):
-        model = trainModel('data/train.tsv.nopunc.tsv', model, 3)
+    trainModel('data/train.tsv.nopunc.tsv', load_model('rnn.h5'), epochs=30)
 
 
 
