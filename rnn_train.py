@@ -1,4 +1,4 @@
-from keras.models import Model, Sequential
+from keras.models import Model, Sequential, load_model
 from keras.layers import Input, LSTM, Dense, TimeDistributed, Softmax, RepeatVector, Bidirectional, Embedding,Dropout
 from keras.callbacks import TensorBoard
 import numpy as np
@@ -65,7 +65,7 @@ def buildData(path, maxrows=-1):
     in_vecs = indexTransform(in_data, pad_len)
     out_vecs = oneHotTransform(out_data, pad_len)
 
-    # Bin into gropus by length, in intervals of 100
+    # Bin into gropus by length, in intervals of 100. Hopefully helps with runtime and weird behavior wrt padding
     buckets = [list(filter(lambda x: i*100 < x[0].shape[0] <= (i+1)*100, zip(in_vecs, out_vecs))) for i in range(5)]
     buckets = [list(zip(*x)) for x in buckets]
     buckets = [(np.array(x), np.array(y)) for x,y in buckets]
@@ -76,7 +76,7 @@ def trainModel(path, model=None, epochs=3):
 
     if model is None:
         model = build_bidirectional_model()
-    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['acc'])
+        model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['acc'])
     for i in range(epochs):
         for in_vecs, out_vecs in buckets:
             model.fit(in_vecs, out_vecs, batch_size=64, epochs=1, validation_split=0.1)
@@ -85,7 +85,7 @@ def trainModel(path, model=None, epochs=3):
 
 
 if __name__ == '__main__':
-    model = None
+    model = load_model('rnn.h5')
     for i in range(30):
         model = trainModel('data/train.tsv.nopunc.tsv', model, 3)
 
