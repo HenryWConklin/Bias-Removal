@@ -4,7 +4,7 @@ import rnn_train
 import sys
 
 def apply(model, text):
-    enc_text = rnn_train.oneHotTransform([text], model.layers[0].input_shape[1])
+    enc_text = rnn_train.indexTransform([text], model.layers[0].input_shape[1])
     out = model.predict(enc_text)
     outS = ''
     for x in out[0]:

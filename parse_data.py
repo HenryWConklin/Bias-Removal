@@ -10,7 +10,7 @@ def getCharSet():
 
 if __name__ == '__main__':
     charSet = set()
-    for x in read('data/train.tsv'):
+    for x in read('data/train.tsv.nopunc.tsv'):
         print(x[0])
         print(x[1])
         print()
