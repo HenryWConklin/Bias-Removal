@@ -162,7 +162,7 @@ def trainModel(path, model=None, epochs=3):
     print(model.output_shape)
     print('"' +rnn_gen.apply(model, 'I am the best') + '"')
     for i in range(epochs):
-        model.fit(in_vecs, out_vecs, batch_size=128, epochs=1, validation_split=0.1)
+        model.fit(in_vecs[:-2000], out_vecs[:-2000], shuffle=True, batch_size=128, epochs=1, validation_data=(in_vecs[-2000:], out_vecs[-2000:]))
         print('"' +rnn_gen.apply(model, 'I am the best') + '"')
         model.save('rnn.h5')
     return model
