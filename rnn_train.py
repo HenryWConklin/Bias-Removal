@@ -161,7 +161,7 @@ def trainModel(path, model=None, epochs=3):
         model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['acc'])
     print(model.output_shape)
     print('"' +rnn_gen.apply(model, 'I am the best') + '"')
-    exampleCallback = LambdaCallback(on_epoch_end=lambda x: print('"' +rnn_gen.apply(model, 'I am the best') + '"'))
+    exampleCallback = LambdaCallback(on_epoch_end=lambda x,y: print('"' +rnn_gen.apply(model, 'I am the best') + '"'))
     checkpointCallback = ModelCheckpoint('rnn.{epoch:02d}-{val_loss:.2f}')
     model.fit(in_vecs[:-2000], out_vecs[:-2000], shuffle=True, batch_size=128, epochs=epochs, validation_data=(in_vecs[-2000:], out_vecs[-2000:]), callbacks=[exampleCallback, checkpointCallback])
     return model
