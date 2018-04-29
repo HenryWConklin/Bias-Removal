@@ -5,17 +5,16 @@ import sys
 import parse_data
 
 def apply(model, text):
-    text = parse_data.tokenize(text)
-    enc_text = rnn_train.wordIndexTransform([text], [len(text)+100])
-    out = model.predict(enc_text)
-    return trunc(invOneHot(out))
+    enc_text = rnn_train.oneHotTransform([text], [100])
+    out = model.predict(np.array(enc_text))
+    return invOneHot(out)
 
 def invOneHot(out):
     outS = ''
-    for x in out:
+    for x in out[0]:
         cInd = np.argmax(x)
-        outS = outS + ' ' + rnn_train.invWordMap[cInd]
-    return outS[1:]
+        outS = outS + rnn_train.invCharMap[cInd]
+    return outS
 
 def trunc(s):
     return s[:s.find('END')].strip()
