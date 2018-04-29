@@ -1,6 +1,6 @@
 from keras.models import Model, Sequential, load_model
 from keras.layers import Input, LSTM, Dense, TimeDistributed, Softmax, RepeatVector, Bidirectional, Embedding,Dropout, Conv1D, MaxPool1D, GRU, Masking
-from keras.callbacks import TensorBoard
+from keras.callbacks import TensorBoard, LambdaCallback, ModelCheckpoint
 import numpy as np
 import parse_data
 import rnn_gen
@@ -161,10 +161,9 @@ def trainModel(path, model=None, epochs=3):
         model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['acc'])
     print(model.output_shape)
     print('"' +rnn_gen.apply(model, 'I am the best') + '"')
-    for i in range(epochs):
-        model.fit(in_vecs[:-2000], out_vecs[:-2000], shuffle=True, batch_size=128, epochs=1, validation_data=(in_vecs[-2000:], out_vecs[-2000:]))
-        print('"' +rnn_gen.apply(model, 'I am the best') + '"')
-        model.save('rnn.h5')
+    exampleCallback = LambdaCallback(on_epoch_end=lambda x: print('"' +rnn_gen.apply(model, 'I am the best') + '"'))
+    checkpointCallback = ModelCheckpoint('rnn.{epoch:02d}-{val_loss:.2f}')
+    model.fit(in_vecs[:-2000], out_vecs[:-2000], shuffle=True, batch_size=128, epochs=epochs, validation_data=(in_vecs[-2000:], out_vecs[-2000:]), callbacks=[exampleCallback, checkpointCallback])
     return model
 
 
