@@ -5,7 +5,7 @@ import sys
 import parse_data
 
 def apply(model, text):
-    enc_text = rnn_train.oneHotTransform([text], [100])
+    enc_text = rnn_train.ngramTransform(rnn_train.oneHotTransform([text], [100]), 20)
     out = model.predict(np.array(enc_text))
     return invOneHot(out)
 

@@ -4,6 +4,7 @@ from keras.callbacks import TensorBoard
 import numpy as np
 import parse_data
 import rnn_gen
+import gc
 
 charSet = ['.'] + parse_data.getCharSet()
 charMap = {c:i for i,c in enumerate(charSet)}
@@ -37,15 +38,14 @@ def build_conv_rnn_model(max_len=None):
     model.add(Conv1D(256, 7, padding='same', activation='relu'))
     model.add(Conv1D(256, 3, padding='same', activation='relu'))
     model.add(Conv1D(256, 3, padding='same', activation='relu'))
-    model.add(Masking(mask_value=0.0))
     model.add(Bidirectional(GRU(512, return_sequences=True, recurrent_activation='sigmoid', reset_after=True)))
     model.add(Dropout(0.5))
     model.add(GRU(512, recurrent_activation='sigmoid', reset_after=True))
     model.add(RepeatVector(max_len))
     model.add(GRU(512, return_sequences=True, recurrent_activation='sigmoid', reset_after=True))
     model.add(Dropout(0.5))
-    model.add(Masking(mask_value=0.0))
-    model.add(GRU(N_CHARS, return_sequences=True, recurrent_activation='sigmoid', reset_after=True))
+    model.add(GRU(512, return_sequences=True, recurrent_activation='sigmoid', reset_after=True))
+    model.add(TimeDistributed(Dense(N_CHARS, activation='softmax')))
     return model
 
 def build_replace_model():
@@ -109,11 +109,20 @@ def indexTransform(docs, pad_to):
     return vecs
 
 def wordIndexTransform(docs, pad_to):
-    vecs = [np.zeros(max(len(d), pad)) for d, pad in zip(docs, pad_to)]
+    vecs = [np.zeros(max(len(d), pad), dtype=np.float32) for d, pad in zip(docs, pad_to)]
     for i,d in enumerate(docs):
         for t,c in enumerate(d):
             vecs[i][t] = wordMap.get(c,1)
     return vecs
+
+# takes [n_documents, doc_size, one_hot], transforms to [x, n, one_hot] so,
+def ngramTransform(vecs, n):
+    ngrams = []
+    for d in vecs:
+        for i in range(0, len(d) - n+1, n//2):
+            ngrams.append(d[i:i+n])
+    return ngrams
+
 
 def buildData(path, maxrows=-1):
     data = parse_data.read(path)
@@ -123,11 +132,18 @@ def buildData(path, maxrows=-1):
 
     # print(max(len(d) for d in in_data))
     # pad_len = [((max(len(d1), len(d2)) // 100 + 1) * 100) for d1,d2 in zip(in_data, out_data)]
-    pad_len = max([len(d) for d in in_data] + [len(d) for d in out_data])
-    pad_len = [pad_len for i in range(len(in_data))]
+    # pad_len = max([len(d) for d in in_data] + [len(d) for d in out_data])
+    # pad_len = [pad_len for i in range(len(in_data))]
 
-    in_vecs = oneHotTransform(in_data, pad_len, True)
-    out_vecs = oneHotTransform(out_data, pad_len, True)
+    in_vecs = oneHotTransform(in_data, [len(d) for d in out_data], True)
+    out_vecs = oneHotTransform(out_data, [len(d) for d in in_data], True)
+    del in_data
+    del out_data
+    del data
+    gc.collect()
+
+    in_vecs = ngramTransform(in_vecs, 20)
+    out_vecs = ngramTransform(out_vecs, 20)
 
     # Bin into gropus by length, in intervals of 100. Hopefully helps with runtime and weird behavior wrt padding
     # buckets = [list(filter(lambda x: i*100 < x[0].shape[0] <= (i+1)*100, zip(in_vecs, out_vecs))) for i in range(5)]
@@ -139,15 +155,15 @@ def buildData(path, maxrows=-1):
 
 def trainModel(path, model=None, epochs=3):
     in_vecs, out_vecs = buildData(path)
-    import gc
     gc.collect()
     if model is None:
         model = build_conv_rnn_model(out_vecs.shape[1])
         model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['acc'])
     print(model.output_shape)
+    print('"' +rnn_gen.apply(model, 'I am the best') + '"')
     for i in range(epochs):
-        model.fit(in_vecs, out_vecs, batch_size=25, epochs=1, validation_split=0.1)
-        print('"' +rnn_gen.apply(model, 'I am the best string of all time') + '"')
+        model.fit(in_vecs, out_vecs, batch_size=128, epochs=1, validation_split=0.1)
+        print('"' +rnn_gen.apply(model, 'I am the best') + '"')
         model.save('rnn.h5')
     return model
 
