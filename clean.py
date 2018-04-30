@@ -9,7 +9,7 @@ if __name__=="__main__":
             if len(cols) > 10:
                 continue
             cols = [x.replace('[', '').replace(']','') for x in cols]
-            if cols[8] != cols[9] and cols[3] == 'true':
+            if cols[8] != cols[9]: #and cols[3] == 'true':
                 print('\t'.join(cols[8:]))
 
 

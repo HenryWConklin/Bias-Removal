@@ -11,9 +11,13 @@ if __name__ == '__main__':
             
             line = map(lambda s: re.sub(r'{{.*?}}', ' ', s), line)
 
+            # Remove numbers
+            line = map(lambda s: re.sub(r'[0-9]+', 'NUM', s), line)
 
             # Filter out punctuation
             line = map(lambda s: ''.join(map(lambda c: ' ' if c in string.punctuation else c, s)), line)
+
+
             # Remove double spaces
             for i in range(10):
                 line = map(lambda s: s.replace('  ', ' ').strip(), line)
