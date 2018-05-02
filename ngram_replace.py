@@ -3,6 +3,7 @@ import difflib
 import sys
 import os
 import pickle
+import random
 
 def build_ngrams(inDocs, outDocs, n):
     igrams = []
@@ -132,11 +133,9 @@ def doReplace(grams, cts):
             res.append([x])
     return res
 
-def doReplaceFreqReplace(docs, cts, n=3, thresh = 0.1):
+def doReplaceFreqReplace(docs, cts, n=5):
     res = []
-    cts = {w: max(cts[w].items(), key=lambda x: x[1]) for w in cts}
-    for i,d in enumerate(docs):
-        sys.stdout.write('\r{:d}'.format(i))
+    for d in docs:
         rd = []
         j = 0
         while j < len(d):
@@ -144,8 +143,8 @@ def doReplaceFreqReplace(docs, cts, n=3, thresh = 0.1):
             for k in range(1, n+1):
                 if j+k <= len(d):
                     w = ' '.join(d[j:j+k])
-                    if w in cts and cts[w][1] >= thresh:
-                        rd += cts[w][0].split(' ')
+                    if w in cts:
+                        rd += cts[w].split(' ')
                         j+=k
                         rep=True
                         break
@@ -153,7 +152,6 @@ def doReplaceFreqReplace(docs, cts, n=3, thresh = 0.1):
                 rd.append(d[j])
                 j+=1
         res.append(rd)
-    print()
     return res
 
 
@@ -175,45 +173,58 @@ def loadOrElse(path, func):
             pickle.dump(res, outFile)
     return res
 
-if __name__ == '__main__':
+def testReplacementModel(cts, tf, N, testToks, countThresh, freqThresh):
+    cts = {w: {k: v/tf[w] for k,v in cts[w].items()} for w in cts if tf.get(w,0) > countThresh}
+    cts = {w: max(cts[w].items(), key=lambda x: x[1]) for w in cts}
+    cts = {k: v[0] for k,v in cts.items() if v[1] >= freqThresh}
+    print("Num replacements: " + str(len(cts)))
+    print("Doing replacements")
+    res = doReplaceFreqReplace(map(lambda x: x[0], testToks), cts, N)
+    print("Scoring")
+    sumRep = 0
+    for r, t in zip(res, testToks):
+        dr = r
+        di, do = t
+        sumRep += difflib.SequenceMatcher(None, dr, do).ratio()
+
+
+    return sumRep/len(testToks), cts
+
+
+#Current best: 0.815602 acc, 87 count, 0.343530 freq
+def replacementModelFineTune():
     N = 5
     # toks = parse_data.readTokens('data/train.uniq.tsv')
     print('Reading data')
-    toks = loadOrElse('toks.pkl', lambda: parse_data.readTokens('/home/henry/Downloads/npov-edits/5gram-edits-train.uniq.tsv'))
+    toks = loadOrElse('toks.pkl', lambda: parse_data.readTokens('/home/henry/Downloads/5gram-edits-train.uniq.tsv'))
+    testToks = parse_data.readTokens('data/dev.tsv.nopunc.tsv')
 
     # cts = countReplacements(toks)
     print('Doing counts')
     cts = loadOrElse('counts.pkl', lambda: countReplacements(toks))
     tf = loadOrElse('termFreq{:d}.pkl'.format(N), lambda: ngramTermFreq(toks, N))
-    print(sorted(tf, key=lambda x: -tf[x])[:50])
-    cts = {w: {k: v/tf[w] for k,v in cts[w].items()} for w in cts if tf.get(w,0) > 10}
-    for k in sorted(cts, key=lambda x: max(cts[x].values()))[-20:]:
-        reps = sorted(cts[k], key=lambda x: -cts[k][x])
-        if reps[0] != k and reps[1] != 1:
-            print(k, [(x, cts[k][x]) for x in reps[:20]])
 
-    print("Doing replacements")
-    testToks = parse_data.readTokens('data/dev.tsv.nopunc.tsv')
-    res = doReplaceFreqReplace(map(lambda x: x[0], testToks), cts, N, 0.3)
-    # res = doReplace((igrams,ograms), cts)
-    print("Scoring")
-    sumRep = 0
-    sumNothing = 0
-    tot = 0
-    for r, t in zip(res, testToks):
-        dr = r
-        di, do = t
-        # if di != dr:
-        #     print(di)
-        #     print(dr)
-        #     print(do)
-        #     print()
-        sumRep += difflib.SequenceMatcher(None, dr, do).ratio()
-        sumNothing += difflib.SequenceMatcher(None, di, do).ratio()
+    bestParams = (86,0.310787)
+    bestAcc = 0.815564
+    while True:
+        countThresh = random.randint(1,100)
+        freqThresh = random.random()
+        acc, model = testReplacementModel(cts, tf, N, testToks, countThresh, freqThresh)
+        if acc > bestAcc:
+            bestAcc = acc
+            bestParams = (countThresh, freqThresh)
+            # Save the model for later
+            with open('replacementModel.best.pkl', 'wb') as outFile:
+                pickle.dump(model, outFile)
+        print("Last: {:.6f} acc, {:d} count, {:.6f} freq".format(acc, countThresh, freqThresh))
+        print("Current best: {:.6f} acc, {:d} count, {:.6f} freq".format(bestAcc, *bestParams))
 
+def testPairedModel():
+    return 0
 
-    print(sumRep/len(testToks))
-    print(sumNothing/len(testToks))
+if __name__ == '__main__':
+    replacementModelFineTune()
+
 
 
 
