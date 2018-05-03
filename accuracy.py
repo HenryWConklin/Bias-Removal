@@ -2,6 +2,7 @@
 
 import sys
 import difflib
+import parse_data
 if len(sys.argv) != 3:
     print("Usage: accuracy.py <pred> <gt>")
 
@@ -12,8 +13,8 @@ totWords = 0
 with open(sys.argv[1]) as pred:
     with open(sys.argv[2]) as gt:
         for pl, gl in zip(pred, gt):
-            pl = pl.strip().split(" ")
-            gl = gl.strip().split(" ")
+            pl = parse_data.tokenize(pl)
+            gl = parse_data.tokenize(gl)
             diffacc += difflib.SequenceMatcher(None, pl, gl).ratio()
             totSents += 1
 

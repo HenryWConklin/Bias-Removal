@@ -13,6 +13,6 @@ with open(sys.argv[1], 'rb') as inFile:
     model = pickle.load(inFile)
 
 for line in sys.stdin:
-    line = parse_data.tokenize(line)
+    line = parse_data.tokenize(line.strip())
     res = ngram_replace.doReplaceFreqReplace([line], model, 5)
     print(' '.join(res[0]))
